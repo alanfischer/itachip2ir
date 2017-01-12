@@ -1,0 +1,264 @@
+#include "ITachIP2IR.h"
+#include <sstream>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <sys/ioctl.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <unistd.h>
+
+#define ITACH_BROADCAST_ADDRESS "239.255.250.250"
+#define ITACH_BROADCAST_PORT 9131
+#define POLL_READ_TIME 500
+
+#define logf printf
+
+using namespace std;
+
+ITachIP2IR::ITachIP2IR(string mac,string ip,int port):
+    macAddress(mac),ipAddress(ip),port(port),
+    beaconSocket(-1),connectingSocket(-1),dataSocket(-1)
+{
+    tryBeacon();
+    tryConnect();
+}
+
+ITachIP2IR::~ITachIP2IR(){
+    if(beaconSocket!=-1){
+        close(beaconSocket);
+    }
+    if(connectingSocket!=-1){
+        close(connectingSocket);
+    }
+    if(dataSocket!=-1){
+        close(dataSocket);
+    }
+}
+
+bool ITachIP2IR::send(int modaddr,int connaddr,IRCommand *command,int count){
+    if(!dataSocket){
+        return false;
+    }
+
+	tryResponse(0);
+
+	string data=commandToGC(modaddr,connaddr,command,count);
+
+    int amount=::send(dataSocket,data.c_str(),data.length(),0);
+	if(amount==data.length() && tryResponse(POLL_READ_TIME)>=0){
+		return true;
+	}
+	else{
+        if(dataSocket!=-1){
+            close(dataSocket);
+            dataSocket=-1;
+        }
+
+		tryConnect();
+
+		return false;
+	}
+}
+
+void ITachIP2IR::update(){
+    fd_set fd;
+    timeval tv={0};
+
+    FD_ZERO(&fd);
+    FD_SET(beaconSocket,&fd);
+	if(beaconSocket!=-1 && select(beaconSocket+1,&fd,NULL,NULL,&tv)){
+		char response[1024];
+		memset(response,0,1024);
+		int amount=recv(beaconSocket,response,1023,0);
+		if(amount>0){
+			string mac,ip;
+			parseBroadcast(response,mac,ip);
+			if(mac==macAddress){
+				if(dataSocket==-1){
+					ipAddress=ip;
+					tryConnect();
+				}
+				else{
+					tryPing();
+				}
+			}
+		}
+	}
+	
+    FD_ZERO(&fd);
+    FD_SET(connectingSocket,&fd);
+	if(connectingSocket!=-1 && select(connectingSocket+1,&fd,NULL,NULL,&tv)){
+		dataSocket=connectingSocket;
+		connectingSocket=-1;
+	}
+
+	if(dataSocket!=-1){
+		tryResponse(0);
+	}
+
+	if(dataSocket==-1 && beaconSocket==-1){
+		tryBeacon();
+	}
+}
+
+int ITachIP2IR::tryResponse(int timeout){
+    fd_set fd;
+    timeval tv={
+        .tv_sec=timeout/1000,
+        .tv_usec=(timeout%1000)*1000,
+    };
+
+	int amount=0;
+    FD_ZERO(&fd);
+    FD_SET(dataSocket,&fd);
+	if(select(dataSocket+1,&fd,NULL,NULL,&tv)){
+		logf("Socket has notification");
+
+		char response[1024];
+		memset(response,0,1024);
+		amount=recv(dataSocket,response,1023,0);
+		if(amount>0){
+			logf("Socket has data");
+
+			return parseResponse(response);
+		}
+		else if(amount<0){
+			logf("Socket is invalid");
+
+			dataSocket=-1;
+			return -1;
+		}
+	}
+	return 0;
+}
+
+int ITachIP2IR::parseResponse(char *message){
+	logf("Response:%s",message);
+
+	int code=0;
+	if(strncmp(message,"ERR",3)==0){
+		char *comma=strchr(message+4,',');
+		if(comma!=NULL){
+			code=-atoi(comma+1);
+		}
+	}
+	else if(strncmp(message,"completeir",10)==0){
+		char *comma=strchr(message+11,',');
+		if(comma!=NULL){
+			code=atoi(comma+1);
+		}
+	}
+	else{
+		code=0;
+	}
+
+	logf("Response code:%d",code);
+
+	return code;
+}
+
+void ITachIP2IR::tryBeacon(){
+	logf("tryBeacon:%s",macAddress.c_str());
+
+	beaconSocket=-1;
+	if(macAddress.length()>0){
+		beaconSocket=socket(PF_INET,SOCK_DGRAM,IPPROTO_UDP);
+		int result=0;
+
+        struct ip_mreq mreq={{0}};
+        mreq.imr_multiaddr.s_addr=inet_addr(ITACH_BROADCAST_ADDRESS);
+        mreq.imr_interface.s_addr=htonl(INADDR_ANY);
+        result|=setsockopt(beaconSocket,IPPROTO_IP,IP_ADD_MEMBERSHIP,(const char *)&mreq,sizeof(struct ip_mreq));
+
+        struct sockaddr_in address={0};
+        address.sin_family=AF_INET;
+        address.sin_addr.s_addr=htonl(INADDR_ANY);
+        address.sin_port=htons(ITACH_BROADCAST_PORT);
+        result|=bind(beaconSocket,(struct sockaddr*)&address,sizeof(address));
+
+        if(result==-1){
+			close(beaconSocket);
+			beaconSocket=-1;
+		}
+	}
+}
+
+void ITachIP2IR::tryConnect(){
+	logf("tryConnect:%s:%d",ipAddress.c_str(),port);
+
+	connectingSocket=-1;
+	if(ipAddress.length()>0){
+        unsigned long value;
+		connectingSocket=socket(PF_INET,SOCK_STREAM,IPPROTO_TCP);
+        value=1;
+        ioctl(connectingSocket,FIONBIO,&value);
+
+        struct sockaddr_in address={0};
+        address.sin_family=AF_INET;
+        address.sin_addr.s_addr=inet_addr(ipAddress.c_str());
+        address.sin_port=htons(port);
+        connect(connectingSocket,(struct sockaddr*)&address,sizeof(address));
+        
+        value=0;
+        ioctl(connectingSocket,FIONBIO,&value);
+	}
+}
+
+void ITachIP2IR::tryPing(){
+	logf("tryPing:%s:%d",ipAddress.c_str(),port);
+
+	string string="getversion\r";
+	int amount=::send(dataSocket,string.c_str(),string.length(),0);
+	if(amount<0 || tryResponse(POLL_READ_TIME)<0){
+		tryConnect();
+	}
+}
+
+bool ITachIP2IR::parseBroadcast(char *message,string &mac,string &ip){
+	logf("Received broadcast:%s",message);
+
+	if(memcmp(message,"AMXB",4)!=0){
+		return false;
+	}
+
+	string info=message+4;
+	int start=0,end=0;
+	while(start>=0){
+		start=info.find("<-",start),end=info.find(">",start);
+		if(start>=0 && end>=0){
+			string line=info.substr(start+2,end-(start+2));
+			int i=line.find("=");
+			string key=line.substr(0,i);
+			string value=line.substr(i+1,line.length());
+			if(key=="UUID"){
+				i=value.find("_");
+				mac=value.substr(i+1,value.length());
+			}
+			else if(key=="Config-URL"){
+				i=value.find("//");
+				ip=value.substr(i+2,value.length());
+			}
+			start+=2;
+		}
+	}
+
+	return true;
+}
+
+string ITachIP2IR::commandToGC(int modaddr,int connaddr,IRCommand *command,int count){
+	std::stringstream result;
+	result << "sendir," << modaddr << ":" << connaddr << ",1";
+	result << "," << command->getFrequency() << "," << ((count>0)?count:1);
+	result << "," << (command->getRepeatPairOffset()*2+1);
+
+	int *data=command->getData();
+	int length=command->getDataLength();
+	int i=0;
+	for(i=0;i<length;++i){
+		result << "," << data[i];
+	}
+
+	result << "\r";
+
+	return result.str();
+}
