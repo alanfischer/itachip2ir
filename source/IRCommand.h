@@ -7,7 +7,7 @@ class IRCommand{
 public:
 	IRCommand(const char *name="",int frequency=0,int repeatPairOffset=0,int *data=NULL,int length=0):
 		name(name),
-        frequency(frequency),
+		frequency(frequency),
 		repeatPairOffset(repeatPairOffset),
 		data(NULL),
 		dataLength(0)
@@ -16,7 +16,7 @@ public:
 	}
 	
 	void setName(std::string n){name=n;}
-    std::string getName() const{return name;}
+	std::string getName() const{return name;}
 	
 	void setFrequency(int f){frequency=f;}
 	int getFrequency() const{return frequency;}
@@ -34,7 +34,7 @@ public:
 	int getDataLength() const{return dataLength;}
 
 protected:
-    std::string name;
+	std::string name;
 	int frequency;
 	int repeatPairOffset;
 	int *data;

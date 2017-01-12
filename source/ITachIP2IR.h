@@ -7,9 +7,9 @@
 class ITachIP2IR{
 public:
 	ITachIP2IR(std::string mac,std::string ip,int port);
-    ~ITachIP2IR();
+	~ITachIP2IR();
 
-	bool ready() const{return dataSocket!=-1;}
+	bool ready(int timeout){return dataSocket!=-1 || checkConnect(timeout);}
 
 	bool send(int modaddr,int connaddr,IRCommand *command,int count);
 
@@ -24,8 +24,9 @@ protected:
 	void tryPing();
 	void tryBeacon();
 	void tryConnect();
+	bool checkConnect(int timeout);
 
-    std::string macAddress,ipAddress;
+	std::string macAddress,ipAddress;
 	int port;
 	int beaconSocket,connectingSocket,dataSocket;
 };
