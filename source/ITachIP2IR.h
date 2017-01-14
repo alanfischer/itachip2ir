@@ -2,6 +2,7 @@
 #define ITACHIP2IR_H
 
 #include <string>
+#include <vector>
 #include "IRCommand.h"
 
 class ITachIP2IR{
@@ -11,11 +12,12 @@ public:
 
 	bool ready(int timeout){return dataSocket!=-1 || checkConnect(timeout);}
 
+	bool loadCommands(char *text);
+
 	bool send(int modaddr,int connaddr,IRCommand *command,int count);
+	bool send(int modaddr,int connaddr,std::string command,int count);
 
 	void update();
-
-	static std::string commandToGC(int modaddr,int connaddr,IRCommand *command,int count);
 
 protected:
 	int parseResponse(char *message);
@@ -25,10 +27,12 @@ protected:
 	void tryBeacon();
 	void tryConnect();
 	bool checkConnect(int timeout);
+	static std::string commandToGC(int modaddr,int connaddr,IRCommand *command,int count);
 
 	std::string macAddress,ipAddress;
 	int port;
 	int beaconSocket,connectingSocket,dataSocket;
+	std::vector<IRCommand> commands;
 };
 
 #endif

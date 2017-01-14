@@ -1,4 +1,5 @@
 #include "ITachIP2IR.h"
+#include "IRCommandParser.h"
 #include <sstream>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -35,10 +36,12 @@ ITachIP2IR::~ITachIP2IR(){
 	}
 }
 
+bool ITachIP2IR::loadCommands(char *text){
+	return IRCommandParser::parseIRCommands(commands, text);
+}
+
 bool ITachIP2IR::send(int modaddr,int connaddr,IRCommand *command,int count){
-	if(!dataSocket){
-		return false;
-	}
+	checkConnect(0);
 
 	tryResponse(0);
 
@@ -60,12 +63,26 @@ bool ITachIP2IR::send(int modaddr,int connaddr,IRCommand *command,int count){
 	}
 }
 
+string name;
+bool correct_name(const IRCommand &cmd){return cmd.getName() == name;}
+
+bool ITachIP2IR::send(int modaddr,int connaddr,string command,int count){
+	name = command;
+	vector<IRCommand>::iterator it=find_if(commands.begin(),commands.end(),correct_name);
+	if(it==commands.end()){
+		logf("Unknown command:%s\n",name.c_str());
+		return false;
+	}
+
+	return send(modaddr,connaddr,&*it,count);
+}
+
 void ITachIP2IR::update(){
 	fd_set fd;
 	timeval tv={0};
 
 	FD_ZERO(&fd);
-	FD_SET(beaconSocket,&fd);
+	if(beaconSocket!=-1) FD_SET(beaconSocket,&fd);
 	if(beaconSocket!=-1 && select(beaconSocket+1,&fd,NULL,NULL,&tv)){
 		char response[1024];
 		memset(response,0,1024);
@@ -103,15 +120,14 @@ int ITachIP2IR::tryResponse(int timeout){
 		.tv_usec=(timeout%1000)*1000,
 	};
 
-	int amount=0;
 	FD_ZERO(&fd);
-	FD_SET(dataSocket,&fd);
-	if(select(dataSocket+1,&fd,NULL,NULL,&tv)){
+	if(dataSocket!=-1) FD_SET(dataSocket,&fd);
+	if(dataSocket!=-1 && select(dataSocket+1,&fd,NULL,NULL,&tv)){
 		logf("Socket has notification\n");
 
 		char response[1024];
 		memset(response,0,1024);
-		amount=recv(dataSocket,response,1023,0);
+		int amount=recv(dataSocket,response,1023,0);
 		if(amount>0){
 			logf("Socket has data\n");
 
@@ -183,9 +199,9 @@ void ITachIP2IR::tryConnect(){
 
 	connectingSocket=-1;
 	if(ipAddress.length()>0){
-		unsigned long value;
 		connectingSocket=socket(PF_INET,SOCK_STREAM,IPPROTO_TCP);
-		value=1;
+
+		unsigned long value=1;
 		ioctl(connectingSocket,FIONBIO,&value);
 
 		struct sockaddr_in address={0};
@@ -193,7 +209,7 @@ void ITachIP2IR::tryConnect(){
 		address.sin_addr.s_addr=inet_addr(ipAddress.c_str());
 		address.sin_port=htons(port);
 		connect(connectingSocket,(struct sockaddr*)&address,sizeof(address));
-		
+
 		value=0;
 		ioctl(connectingSocket,FIONBIO,&value);
 	}
@@ -207,8 +223,9 @@ bool ITachIP2IR::checkConnect(int timeout){
 	};
 
 	FD_ZERO(&fd);
-	FD_SET(connectingSocket,&fd);
-	if(connectingSocket!=-1 && select(connectingSocket+1,&fd,NULL,NULL,&tv)){
+	if(connectingSocket!=-1) FD_SET(connectingSocket,&fd);
+	if(connectingSocket!=-1 && select(connectingSocket+1,NULL,&fd,NULL,&tv)){
+		logf("checkConnect: connected\n");
 		dataSocket=connectingSocket;
 		connectingSocket=-1;
 	}
@@ -275,6 +292,18 @@ string ITachIP2IR::commandToGC(int modaddr,int connaddr,IRCommand *command,int c
 	return result.str();
 }
 
+extern "C" {
+
+ITachIP2IR *ITachIP2IR_new(const char* mac, const char* ip, int port){return new ITachIP2IR(mac,ip,port);}
+void ITachIP2IR_delete(ITachIP2IR *itach){delete itach;}
+
+bool ITachIP2IR_ready(ITachIP2IR *itach,int timeout){return itach->ready(timeout);}
+void ITachIP2IR_update(ITachIP2IR *itach){itach->update();}
+bool ITachIP2IR_loadCommands(ITachIP2IR *itach, char* text){return itach->loadCommands(text);}
+bool ITachIP2IR_send(ITachIP2IR *itach, int modaddr, int connaddr, const char* command, int count){return itach->send(modaddr,connaddr,command,count);}
+
+}
+
 #if ITACHIP2IR_MAIN
 
 #include <fstream>
@@ -282,27 +311,14 @@ string ITachIP2IR::commandToGC(int modaddr,int connaddr,IRCommand *command,int c
 #include <vector>
 #include "IRCommandParser.h"
 
-string name;
-bool correct_name(const IRCommand &cmd){return cmd.getName() == name;}
-
 int main(int argc, char **argv) {
-	if (argc < 7) {
-		printf("%s [ip] [port] [file] [command] [addr] [count]\n", argv[0]);
+	if (argc < 8) {
+		printf("%s [ip] [port] [file] [command] [mod] [conn] [count]\n", argv[0]);
 		return 1;
 	}
 
 	ifstream file(argv[3]);
 	string str((istreambuf_iterator<char>(file)), istreambuf_iterator<char>());
- 
-	vector<IRCommand> commands;
-	IRCommandParser::parseIRCommands(commands, (char*)str.c_str());
-
-	name = argv[4];
-	vector<IRCommand>::iterator it=find_if(commands.begin(),commands.end(),correct_name);
-	if(it==commands.end()){
-		printf("Unknown command:%s\n",name.c_str());
-		return -1;
-	}
 
 	ITachIP2IR itach("",argv[1],atoi(argv[2]));
 	if(!itach.ready(5000)){
@@ -310,7 +326,8 @@ int main(int argc, char **argv) {
 		return -1;
 	}
 
-	itach.send(1, 1, &*it, 1);
+	itach.loadCommands((char*)str.c_str());
+	itach.send(atoi(argv[5]), atoi(argv[6]), argv[4], atoi(argv[7]));
 }
 
 #endif
