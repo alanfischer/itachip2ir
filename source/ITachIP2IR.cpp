@@ -16,7 +16,7 @@
 
 using namespace std;
 
-ITachIP2IR::ITachIP2IR(string mac,string ip,int port):
+ITachIP2IR::ITachIP2IR(const string& mac,const string& ip,int port):
 	macAddress(mac),ipAddress(ip),port(port),
 	beaconSocket(-1),connectingSocket(-1),dataSocket(-1)
 {
@@ -36,11 +36,39 @@ ITachIP2IR::~ITachIP2IR(){
 	}
 }
 
-bool ITachIP2IR::loadCommands(char *text){
-	return IRCommandParser::parseIRCommands(commands, text);
+bool ITachIP2IR::addDevice(const string& name,int modaddr,int connaddr,char *text){
+	Device device;
+	bool result = IRCommandParser::parseIRCommands(device.commands, text);
+	if(!result){
+		return false;
+	}
+	device.modaddr=modaddr;
+	device.connaddr=connaddr;
+	devices[name]=device;
+	return true;
 }
 
-bool ITachIP2IR::send(int modaddr,int connaddr,IRCommand *command,int count){
+string name;
+bool command_name(const IRCommand& command){return command.getName() == name;}
+
+bool ITachIP2IR::send(const string& device,const string& command,int count){
+	map<string,Device>::iterator dit=devices.find(device);
+	if(dit==devices.end()){
+		logf("Unknown device:%s\n",device.c_str());
+		return false;
+	}
+
+	name = command;
+	vector<IRCommand>::iterator cit=find_if(dit->second.commands.begin(),dit->second.commands.end(),command_name);
+	if(cit==dit->second.commands.end()){
+		logf("Unknown command:%s\n",name.c_str());
+		return false;
+	}
+
+	return send(dit->second.modaddr,dit->second.connaddr,&*cit,count);
+}
+
+bool ITachIP2IR::send(int modaddr,int connaddr,const IRCommand *command,int count){
 	checkConnect(0);
 
 	tryResponse(0);
@@ -61,20 +89,6 @@ bool ITachIP2IR::send(int modaddr,int connaddr,IRCommand *command,int count){
 
 		return false;
 	}
-}
-
-string name;
-bool correct_name(const IRCommand &cmd){return cmd.getName() == name;}
-
-bool ITachIP2IR::send(int modaddr,int connaddr,string command,int count){
-	name = command;
-	vector<IRCommand>::iterator it=find_if(commands.begin(),commands.end(),correct_name);
-	if(it==commands.end()){
-		logf("Unknown command:%s\n",name.c_str());
-		return false;
-	}
-
-	return send(modaddr,connaddr,&*it,count);
 }
 
 void ITachIP2IR::update(){
@@ -274,7 +288,7 @@ bool ITachIP2IR::parseBroadcast(char *message,string &mac,string &ip){
 	return true;
 }
 
-string ITachIP2IR::commandToGC(int modaddr,int connaddr,IRCommand *command,int count){
+string ITachIP2IR::commandToGC(int modaddr,int connaddr,const IRCommand *command,int count){
 	std::stringstream result;
 	result << "sendir," << modaddr << ":" << connaddr << ",1";
 	result << "," << command->getFrequency() << "," << ((count>0)?count:1);
@@ -299,8 +313,8 @@ void ITachIP2IR_delete(ITachIP2IR *itach){delete itach;}
 
 bool ITachIP2IR_ready(ITachIP2IR *itach,int timeout){return itach->ready(timeout);}
 void ITachIP2IR_update(ITachIP2IR *itach){itach->update();}
-bool ITachIP2IR_loadCommands(ITachIP2IR *itach, char* text){return itach->loadCommands(text);}
-bool ITachIP2IR_send(ITachIP2IR *itach, int modaddr, int connaddr, const char* command, int count){return itach->send(modaddr,connaddr,command,count);}
+bool ITachIP2IR_addDevice(ITachIP2IR *itach,const char* name,int modaddr,int connaddr,char *text){return itach->addDevice(name,modaddr,connaddr,text);}
+bool ITachIP2IR_send(ITachIP2IR *itach,const char* device,const char* command,int count){return itach->send(device,command,count);}
 
 }
 
@@ -326,8 +340,8 @@ int main(int argc, char **argv) {
 		return -1;
 	}
 
-	itach.loadCommands((char*)str.c_str());
-	itach.send(atoi(argv[5]), atoi(argv[6]), argv[4], atoi(argv[7]));
+	itach.addDevice("device",atoi(argv[5]),atoi(argv[6]),(char*)str.c_str());
+	itach.send("device",argv[4],atoi(argv[7]));
 }
 
 #endif

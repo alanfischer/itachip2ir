@@ -3,19 +3,21 @@
 
 #include <string>
 #include <vector>
+#include <map>
 #include "IRCommand.h"
 
 class ITachIP2IR{
 public:
-	ITachIP2IR(std::string mac,std::string ip,int port);
+	ITachIP2IR(const std::string& mac,const std::string& ip,int port);
 	~ITachIP2IR();
 
 	bool ready(int timeout){return dataSocket!=-1 || checkConnect(timeout);}
 
-	bool loadCommands(char *text);
+	bool addDevice(const std::string &name, int modaddr, int connaddr, char *text);
 
-	bool send(int modaddr,int connaddr,IRCommand *command,int count);
-	bool send(int modaddr,int connaddr,std::string command,int count);
+	bool send(const std::string& device, const std::string& command,int count);
+
+	bool send(int modaddr,int connaddr,const IRCommand *command,int count);
 
 	void update();
 
@@ -27,12 +29,18 @@ protected:
 	void tryBeacon();
 	void tryConnect();
 	bool checkConnect(int timeout);
-	static std::string commandToGC(int modaddr,int connaddr,IRCommand *command,int count);
+	static std::string commandToGC(int modaddr,int connaddr,const IRCommand *command,int count);
 
 	std::string macAddress,ipAddress;
 	int port;
 	int beaconSocket,connectingSocket,dataSocket;
-	std::vector<IRCommand> commands;
+
+	struct Device{
+		std::vector<IRCommand> commands;
+		int modaddr;
+		int connaddr;
+	};
+	std::map<std::string, Device> devices;
 };
 
 #endif
