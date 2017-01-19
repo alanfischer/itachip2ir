@@ -1,12 +1,14 @@
 #include "ITachIP2IR.h"
 #include "IRCommandParser.h"
 #include <sstream>
+#include <algorithm>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/ioctl.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <unistd.h>
+#include <stdio.h>
 
 #define ITACH_BROADCAST_ADDRESS "239.255.250.250"
 #define ITACH_BROADCAST_PORT 9131

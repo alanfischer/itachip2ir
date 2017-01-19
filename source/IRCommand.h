@@ -2,6 +2,7 @@
 #define IRCOMMAND_H
 
 #include <string>
+#include <string.h>
 
 class IRCommand{
 public:
