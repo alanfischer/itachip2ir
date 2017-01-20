@@ -152,6 +152,7 @@ int ITachIP2IR::tryResponse(int timeout){
 		else if(amount<0){
 			logf("Socket is invalid\n");
 
+            close(dataSocket);
 			dataSocket=-1;
 			return -1;
 		}
@@ -204,8 +205,10 @@ void ITachIP2IR::tryBeacon(){
 		result|=bind(beaconSocket,(struct sockaddr*)&address,sizeof(address));
 
 		if(result==-1){
-			close(beaconSocket);
-			beaconSocket=-1;
+            if(beaconSocket!=-1){
+			    close(beaconSocket);
+		    	beaconSocket=-1;
+            }
 		}
 	}
 }
@@ -213,7 +216,11 @@ void ITachIP2IR::tryBeacon(){
 void ITachIP2IR::tryConnect(){
 	logf("tryConnect:%s:%d\n",ipAddress.c_str(),port);
 
-	connectingSocket=-1;
+    if(connectingSocket!=-1){
+        close(connectingSocket);
+	    connectingSocket=-1;
+    }
+
 	if(ipAddress.length()>0){
 		connectingSocket=socket(PF_INET,SOCK_STREAM,IPPROTO_TCP);
 
