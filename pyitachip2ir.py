@@ -4,7 +4,14 @@ Control an itach ip2ir gateway using libitachip2ir
 from ctypes import *
 import os
 
-libitachip2ir = cdll.LoadLibrary(os.path.dirname(__file__) + "/libitachip2ir.dylib")
+for ext in ['so','dylib','dll']:
+    for pre in ['lib','']:
+        try:
+            libitachip2ir = cdll.LoadLibrary(os.path.dirname(__file__) + "/" + pre + "itachip2ir." + ext)
+            break
+        except OSError:
+            pass
+    
 libitachip2ir.ITachIP2IR_new.argtypes = [c_char_p, c_char_p, c_int]
 libitachip2ir.ITachIP2IR_new.restype = c_void_p
 libitachip2ir.ITachIP2IR_delete.argtypes = [c_void_p]
