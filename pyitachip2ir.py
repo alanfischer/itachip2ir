@@ -11,7 +11,11 @@ for ext in ['so','dylib','dll']:
             break
         except OSError:
             pass
-    
+try:
+    libitachip2ir
+except NameError:
+    raise OSError("Unable to find itachip2ir library")
+
 libitachip2ir.ITachIP2IR_new.argtypes = [c_char_p, c_char_p, c_int]
 libitachip2ir.ITachIP2IR_new.restype = c_void_p
 libitachip2ir.ITachIP2IR_delete.argtypes = [c_void_p]
