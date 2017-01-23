@@ -1,6 +1,7 @@
 """
-Control an itach ip2ir gateway using libitachip2ir
+Control an itach ip2ir gateway using libitachip2ir in homeassistant
 """
+
 import logging
 from . import pyitachip2ir
 
