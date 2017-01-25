@@ -3,17 +3,22 @@ Control an itach ip2ir gateway using libitachip2ir
 """
 from ctypes import *
 import os
+import fnmatch
 import sys
 import logging
 
-libitachip2ir = None
-for ext in ['so','dylib','dll']:
-    for pre in ['lib','']:
-        try:
-            libitachip2ir = cdll.LoadLibrary(os.path.dirname(__file__) + "/" + pre + "itachip2ir." + ext)
-            break
-        except OSError:
-            pass
+def findlib():
+    dirname = os.path.dirname(__file__)
+    for ext in ['so','dylib','dll']:
+        names = fnmatch.filter(os.listdir(dirname),"*itachip2ir*" + ext)
+        for name in names:
+            try:
+                print(dirname +"/"+ name)
+                return cdll.LoadLibrary(dirname +"/"+name)
+            except OSError:
+                pass
+    return None
+libitachip2ir = findlib()
 if libitachip2ir is None:
     raise OSError("Unable to find itachip2ir library")
 
