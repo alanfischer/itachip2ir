@@ -7,7 +7,8 @@ It can be given an ip address and port to connect to, or it can be given a mac a
 
 It gets the IR commands from a command library file that follows the format of:
 
-.. code::
+.. code-block::
+
     CH1
     0000 006D 0000 0022 00AC 00AB 0015 0041 0015 0041 0015 0041 0015 0016 0015 0016 0015 0016 0015 0016 0015 0016 0015 0041 0015 0041 0015 0041 0015 0016 0015 0016 0015 0016 0015 0016 0015 0016 0015 0016 0015 0016 0015 0041 0015 0016 0015 0016 0015 0016 0015 0016 0015 0016 0015 0041 0015 0041 0015 0016 0015 0041 0015 0041 0015 0041 0015 0041 0015 0041 0015 0689
 
@@ -21,11 +22,13 @@ Dependencies
 How to use
 ----------
     - Executable command line interface for sending one shot ir commands
-        .. code::
+        .. code-block::
+
             ./itachip2ir [ip-of-itach] [itach-listening-port] [ir-commands.txt] [name-of-ir-command] [itach-mod] [itach-conn] [message-count]
 
     - Python object
-        .. code:: python
+        .. code-block:: python
+
             import pyitachip2ir
             import logging
 

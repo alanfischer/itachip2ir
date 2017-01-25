@@ -10,7 +10,7 @@ from os import path
 
 here = path.abspath(path.dirname(__file__))
 
-with open(path.join(here, 'README.md'), encoding='utf-8') as f:
+with open(path.join(here, 'README.rst'), encoding='utf-8') as f:
     long_description = f.read()
 
 module = Extension('itachip2ir',
@@ -21,7 +21,7 @@ module = Extension('itachip2ir',
 
 setup(
     name='pyitachip2ir',
-    version='0.0.1',
+    version='0.0.2',
     description='A library for sending IR commands to an ITach IP2IR gateway',
     long_description=long_description,
     url='https://bitbucket.com/pallindo/itachip2ir',
