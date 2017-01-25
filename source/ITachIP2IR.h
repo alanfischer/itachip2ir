@@ -21,6 +21,9 @@ public:
 
 	void update();
 
+	static void logf(const char* format,...);
+	static void setLog(void (*cb)(const char*));
+
 protected:
 	int parseResponse(char *message);
 	bool parseBroadcast(char *message,std::string &mac,std::string &ip);
@@ -41,6 +44,8 @@ protected:
 		int connaddr;
 	};
 	std::map<std::string, Device> devices;
+
+	static void (*log)(const char*);
 };
 
 #endif

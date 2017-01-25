@@ -14,9 +14,27 @@
 #define ITACH_BROADCAST_PORT 9131
 #define POLL_READ_TIME 500
 
-#define logf printf
-
 using namespace std;
+
+void (*ITachIP2IR::log)(const char*) = NULL;
+
+void ITachIP2IR::setLog(void (*cb)(const char*)){
+	log = cb;
+}
+
+void ITachIP2IR::logf(const char* format, ...){
+	char data[1024];
+	va_list argptr;
+	va_start(argptr, format);
+	vsprintf(data, format, argptr);
+	va_end(argptr);
+	if(log){
+		log(data);
+	}
+	else{
+		printf("%s\n",data);
+	}
+}
 
 ITachIP2IR::ITachIP2IR(const string& mac,const string& ip,int port):
 	macAddress(mac),ipAddress(ip),port(port),
@@ -56,14 +74,14 @@ bool command_name(const IRCommand& command){return command.getName() == name;}
 bool ITachIP2IR::send(const string& device,const string& command,int count){
 	map<string,Device>::iterator dit=devices.find(device);
 	if(dit==devices.end()){
-		logf("Unknown device:%s\n",device.c_str());
+		logf("Unknown device:%s",device.c_str());
 		return false;
 	}
 
 	name = command;
 	vector<IRCommand>::iterator cit=find_if(dit->second.commands.begin(),dit->second.commands.end(),command_name);
 	if(cit==dit->second.commands.end()){
-		logf("Unknown command:%s\n",name.c_str());
+		logf("Unknown command:%s",name.c_str());
 		return false;
 	}
 
@@ -139,20 +157,20 @@ int ITachIP2IR::tryResponse(int timeout){
 	FD_ZERO(&fd);
 	if(dataSocket!=-1) FD_SET(dataSocket,&fd);
 	if(dataSocket!=-1 && select(dataSocket+1,&fd,NULL,NULL,&tv)){
-		logf("Socket has notification\n");
+		logf("Socket has notification");
 
 		char response[1024];
 		memset(response,0,1024);
 		int amount=recv(dataSocket,response,1023,0);
 		if(amount>0){
-			logf("Socket has data\n");
+			logf("Socket has data");
 
 			return parseResponse(response);
 		}
 		else if(amount<0){
-			logf("Socket is invalid\n");
+			logf("Socket is invalid");
 
-            close(dataSocket);
+			close(dataSocket);
 			dataSocket=-1;
 			return -1;
 		}
@@ -161,7 +179,7 @@ int ITachIP2IR::tryResponse(int timeout){
 }
 
 int ITachIP2IR::parseResponse(char *message){
-	logf("Response:%s\n",message);
+	logf("Response:%s",message);
 
 	int code=0;
 	if(strncmp(message,"ERR",3)==0){
@@ -180,13 +198,13 @@ int ITachIP2IR::parseResponse(char *message){
 		code=0;
 	}
 
-	logf("Response code:%d\n",code);
+	logf("Response code:%d",code);
 
 	return code;
 }
 
 void ITachIP2IR::tryBeacon(){
-	logf("tryBeacon:%s\n",macAddress.c_str());
+	logf("tryBeacon:%s",macAddress.c_str());
 
 	beaconSocket=-1;
 	if(macAddress.length()>0){
@@ -205,21 +223,21 @@ void ITachIP2IR::tryBeacon(){
 		result|=bind(beaconSocket,(struct sockaddr*)&address,sizeof(address));
 
 		if(result==-1){
-            if(beaconSocket!=-1){
-			    close(beaconSocket);
-		    	beaconSocket=-1;
-            }
+			if(beaconSocket!=-1){
+				close(beaconSocket);
+				beaconSocket=-1;
+			}
 		}
 	}
 }
 
 void ITachIP2IR::tryConnect(){
-	logf("tryConnect:%s:%d\n",ipAddress.c_str(),port);
+	logf("tryConnect:%s:%d",ipAddress.c_str(),port);
 
-    if(connectingSocket!=-1){
-        close(connectingSocket);
-	    connectingSocket=-1;
-    }
+	if(connectingSocket!=-1){
+		close(connectingSocket);
+		connectingSocket=-1;
+	}
 
 	if(ipAddress.length()>0){
 		connectingSocket=socket(PF_INET,SOCK_STREAM,IPPROTO_TCP);
@@ -248,7 +266,7 @@ bool ITachIP2IR::checkConnect(int timeout){
 	FD_ZERO(&fd);
 	if(connectingSocket!=-1) FD_SET(connectingSocket,&fd);
 	if(connectingSocket!=-1 && select(connectingSocket+1,NULL,&fd,NULL,&tv)){
-		logf("checkConnect: connected\n");
+		logf("checkConnect: connected");
 		dataSocket=connectingSocket;
 		connectingSocket=-1;
 	}
@@ -257,7 +275,7 @@ bool ITachIP2IR::checkConnect(int timeout){
 }
 
 void ITachIP2IR::tryPing(){
-	logf("tryPing:%s:%d\n",ipAddress.c_str(),port);
+	logf("tryPing:%s:%d",ipAddress.c_str(),port);
 
 	string string="getversion\r";
 	int amount=::send(dataSocket,string.c_str(),string.length(),0);
@@ -267,7 +285,7 @@ void ITachIP2IR::tryPing(){
 }
 
 bool ITachIP2IR::parseBroadcast(char *message,string &mac,string &ip){
-	logf("Received broadcast:%s\n",message);
+	logf("Received broadcast:%s",message);
 
 	if(memcmp(message,"AMXB",4)!=0){
 		return false;
@@ -317,13 +335,15 @@ string ITachIP2IR::commandToGC(int modaddr,int connaddr,const IRCommand *command
 
 extern "C" {
 
-ITachIP2IR *ITachIP2IR_new(const char* mac, const char* ip, int port){return new ITachIP2IR(mac,ip,port);}
+ITachIP2IR *ITachIP2IR_new(const char* mac, const char* ip, int port){return new ITachIP2IR(mac ? mac : "",ip ? ip : "",port);}
 void ITachIP2IR_delete(ITachIP2IR *itach){delete itach;}
 
 bool ITachIP2IR_ready(ITachIP2IR *itach,int timeout){return itach->ready(timeout);}
 void ITachIP2IR_update(ITachIP2IR *itach){itach->update();}
-bool ITachIP2IR_addDevice(ITachIP2IR *itach,const char* name,int modaddr,int connaddr,char *text){return itach->addDevice(name,modaddr,connaddr,text);}
-bool ITachIP2IR_send(ITachIP2IR *itach,const char* device,const char* command,int count){return itach->send(device,command,count);}
+bool ITachIP2IR_addDevice(ITachIP2IR *itach,const char* name,int modaddr,int connaddr,char *text){return itach->addDevice(name ? name : "",modaddr,connaddr,text);}
+bool ITachIP2IR_send(ITachIP2IR *itach,const char* device,const char* command,int count){return itach->send(device ? device : "",command ? command : "",count);}
+
+void ITachIP2IR_setLog(void (*cb)(const char*)){ITachIP2IR::setLog(cb);}
 
 }
 

@@ -4,7 +4,7 @@ https://packaging.python.org/en/latest/distributing.html
 https://bitbucket.com/pallindo/itachip2ir
 """
 
-from setuptools import setup, find_packages, Extension
+from setuptools import setup, Extension
 from codecs import open
 from os import path
 
@@ -14,11 +14,14 @@ with open(path.join(here, 'README.md'), encoding='utf-8') as f:
     long_description = f.read()
 
 module = Extension('itachip2ir',
-                    sources = ['source/ITachIP2IR.cpp', 'source/IRCommandParser.cpp'])
+                    sources = [
+                        'source/ITachIP2IR.cpp',
+                        'source/IRCommandParser.cpp'
+                    ])
 
 setup(
     name='pyitachip2ir',
-    version='1.0.0',
+    version='0.0.1',
     description='A library for sending IR commands to an ITach IP2IR gateway',
     long_description=long_description,
     url='https://bitbucket.com/pallindo/itachip2ir',
@@ -39,7 +42,6 @@ setup(
         'Programming Language :: Python :: 3.5',
     ],
     keywords='itach ip2ir homeautomation',
-    packages=find_packages(),
     py_modules = ["pyitachip2ir"],
     ext_modules = [module]
 )
