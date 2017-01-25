@@ -9,6 +9,7 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <stdio.h>
+#include <stdarg.h>
 
 #define ITACH_BROADCAST_ADDRESS "239.255.250.250"
 #define ITACH_BROADCAST_PORT 9131
@@ -96,7 +97,7 @@ bool ITachIP2IR::send(int modaddr,int connaddr,const IRCommand *command,int coun
 	string data=commandToGC(modaddr,connaddr,command,count);
 
 	int amount=::send(dataSocket,data.c_str(),data.length(),0);
-	if(amount==data.length() && tryResponse(POLL_READ_TIME)>=0){
+	if(amount==(int)data.length() && tryResponse(POLL_READ_TIME)>=0){
 		return true;
 	}
 	else{
