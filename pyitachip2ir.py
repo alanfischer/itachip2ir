@@ -13,7 +13,6 @@ def findlib():
         names = fnmatch.filter(os.listdir(dirname),"*itachip2ir*" + ext)
         for name in names:
             try:
-                print(dirname +"/"+ name)
                 return cdll.LoadLibrary(dirname +"/"+name)
             except OSError:
                 pass
