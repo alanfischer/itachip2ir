@@ -1,5 +1,4 @@
 include README.rst
 include LICENSE.txt
-include setup.cfg
 include *.py
 include source/*.*
