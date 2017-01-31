@@ -150,10 +150,9 @@ void ITachIP2IR::update(){
 
 int ITachIP2IR::tryResponse(int timeout){
 	fd_set fd;
-	timeval tv={
-		.tv_sec=timeout/1000,
-		.tv_usec=(timeout%1000)*1000,
-	};
+	timeval tv;
+	tv.tv_sec=timeout/1000;
+	tv.tv_usec=(timeout%1000)*1000;
 
 	FD_ZERO(&fd);
 	if(dataSocket!=-1) FD_SET(dataSocket,&fd);
@@ -259,10 +258,9 @@ void ITachIP2IR::tryConnect(){
 
 bool ITachIP2IR::checkConnect(int timeout){
 	fd_set fd;
-	timeval tv={
-		.tv_sec=timeout/1000,
-		.tv_usec=(timeout%1000)*1000,
-	};
+	timeval tv;
+	tv.tv_sec=timeout/1000;
+	tv.tv_usec=(timeout%1000)*1000;
 
 	FD_ZERO(&fd);
 	if(connectingSocket!=-1) FD_SET(connectingSocket,&fd);
