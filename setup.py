@@ -21,7 +21,7 @@ module = Extension('itachip2ir',
 
 setup(
     name='pyitachip2ir',
-    version='0.0.5',
+    version='0.0.6',
     description='A library for sending IR commands to an ITach IP2IR gateway',
     long_description=long_description,
     url='https://bitbucket.com/pallindo/itachip2ir',
