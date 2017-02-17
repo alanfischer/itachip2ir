@@ -9,7 +9,7 @@ import logging
 
 def findlib():
     dirname = os.path.dirname(__file__)
-    for ext in ['so','dylib','dll']:
+    for ext in ['so','dylib','dll','pyd']:
         names = fnmatch.filter(os.listdir(dirname),"*itachip2ir*" + ext)
         for name in names:
             try:

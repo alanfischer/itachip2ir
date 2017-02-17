@@ -2,14 +2,28 @@
 #include "IRCommandParser.h"
 #include <sstream>
 #include <algorithm>
+#include <stdio.h>
+#include <stdarg.h>
+
+#ifdef _WIN32
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN 1
+#endif
+#include <windows.h>
+#include <winsock.h>
+#define close closesocket
+#define ioctl ioctlsocket
+#pragma comment(lib, "ws2_32")
+#define API __declspec(dllexport)
+#else
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/ioctl.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <unistd.h>
-#include <stdio.h>
-#include <stdarg.h>
+#define API
+#endif
 
 #define ITACH_BROADCAST_ADDRESS "239.255.250.250"
 #define ITACH_BROADCAST_PORT 9131
@@ -41,6 +55,11 @@ ITachIP2IR::ITachIP2IR(const string& mac,const string& ip,int port):
 	macAddress(mac),ipAddress(ip),port(port),
 	beaconSocket(-1),connectingSocket(-1),dataSocket(-1)
 {
+#ifdef _WIN32
+    WSADATA wsaData;
+    WSAStartup(0x202, &wsaData);
+#endif
+
 	tryBeacon();
 	tryConnect();
 }
@@ -55,6 +74,10 @@ ITachIP2IR::~ITachIP2IR(){
 	if(dataSocket!=-1){
 		close(dataSocket);
 	}
+
+#ifdef _WIN32
+	WSACleanup();
+#endif
 }
 
 bool ITachIP2IR::addDevice(const string& name,int modaddr,int connaddr,char *text){
@@ -118,7 +141,7 @@ void ITachIP2IR::update(){
 
 	FD_ZERO(&fd);
 	if(beaconSocket!=-1) FD_SET(beaconSocket,&fd);
-	if(beaconSocket!=-1 && select(beaconSocket+1,&fd,NULL,NULL,&tv)){
+	if(beaconSocket!=-1 && select(beaconSocket+1,&fd,NULL,NULL,&tv)>0){
 		char response[1024];
 		memset(response,0,1024);
 		int amount=recv(beaconSocket,response,1023,0);
@@ -156,7 +179,7 @@ int ITachIP2IR::tryResponse(int timeout){
 
 	FD_ZERO(&fd);
 	if(dataSocket!=-1) FD_SET(dataSocket,&fd);
-	if(dataSocket!=-1 && select(dataSocket+1,&fd,NULL,NULL,&tv)){
+	if(dataSocket!=-1 && select(dataSocket+1,&fd,NULL,NULL,&tv)>0){
 		logf("Socket has notification");
 
 		char response[1024];
@@ -264,7 +287,7 @@ bool ITachIP2IR::checkConnect(int timeout){
 
 	FD_ZERO(&fd);
 	if(connectingSocket!=-1) FD_SET(connectingSocket,&fd);
-	if(connectingSocket!=-1 && select(connectingSocket+1,NULL,&fd,NULL,&tv)){
+	if(connectingSocket!=-1 && select(connectingSocket+1,NULL,&fd,NULL,&tv)>0){
 		logf("checkConnect: connected");
 		dataSocket=connectingSocket;
 		connectingSocket=-1;
@@ -334,15 +357,17 @@ string ITachIP2IR::commandToGC(int modaddr,int connaddr,const IRCommand *command
 
 extern "C" {
 
-ITachIP2IR *ITachIP2IR_new(const char* mac, const char* ip, int port){return new ITachIP2IR(mac ? mac : "",ip ? ip : "",port);}
-void ITachIP2IR_delete(ITachIP2IR *itach){delete itach;}
+API ITachIP2IR *ITachIP2IR_new(const char* mac, const char* ip, int port){return new ITachIP2IR(mac ? mac : "",ip ? ip : "",port);}
+API void ITachIP2IR_delete(ITachIP2IR *itach){delete itach;}
 
-bool ITachIP2IR_ready(ITachIP2IR *itach,int timeout){return itach->ready(timeout);}
-void ITachIP2IR_update(ITachIP2IR *itach){itach->update();}
-bool ITachIP2IR_addDevice(ITachIP2IR *itach,const char* name,int modaddr,int connaddr,char *text){return itach->addDevice(name ? name : "",modaddr,connaddr,text);}
-bool ITachIP2IR_send(ITachIP2IR *itach,const char* device,const char* command,int count){return itach->send(device ? device : "",command ? command : "",count);}
+API bool ITachIP2IR_ready(ITachIP2IR *itach,int timeout){return itach->ready(timeout);}
+API void ITachIP2IR_update(ITachIP2IR *itach){itach->update();}
+API bool ITachIP2IR_addDevice(ITachIP2IR *itach,const char* name,int modaddr,int connaddr,char *text){return itach->addDevice(name ? name : "",modaddr,connaddr,text);}
+API bool ITachIP2IR_send(ITachIP2IR *itach,const char* device,const char* command,int count){return itach->send(device ? device : "",command ? command : "",count);}
 
-void ITachIP2IR_setLog(void (*cb)(const char*)){ITachIP2IR::setLog(cb);}
+API void ITachIP2IR_setLog(void (*cb)(const char*)){ITachIP2IR::setLog(cb);}
+
+void* PyInit_itachip2ir(){return NULL;}
 
 }
 

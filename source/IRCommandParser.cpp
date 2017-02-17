@@ -1,5 +1,6 @@
 #include "IRCommandParser.h"
 #include <stdlib.h>
+#include <algorithm>
 
 using namespace std;
 
@@ -28,7 +29,7 @@ bool IRCommandParser::parseIRCommands(vector<IRCommand> &result,char *text){
 		name=irstrtok(NULL,delims);
 	}
 
-	int i;
+	size_t i;
 	for(i=0;i<names.size();++i){
 		IRCommand command(names[i]);
 		if(parseIRCommand(&command,datas[i])){
@@ -65,7 +66,7 @@ bool IRCommandParser::parseIRCommand(IRCommand *result, char *text){
 		return false;
 	}
 	
-	result->setFrequency(1000000/((float)data[1] * 0.241246));
+	result->setFrequency((int)(1000000/((float)data[1] * 0.241246f)));
 	
 	result->setRepeatPairOffset(data[2]);
 	
