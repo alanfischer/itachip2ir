@@ -243,7 +243,7 @@ void ITachIP2IR::tryBeacon(){
 		address.sin_family=AF_INET;
 		address.sin_addr.s_addr=htonl(INADDR_ANY);
 		address.sin_port=htons(ITACH_BROADCAST_PORT);
-		result|=bind(beaconSocket,(struct sockaddr*)&address,sizeof(address));
+		result|=::bind(beaconSocket,(struct sockaddr*)&address,sizeof(address));
 
 		if(result==-1){
 			if(beaconSocket!=-1){
