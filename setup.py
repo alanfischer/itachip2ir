@@ -20,13 +20,13 @@ module = Extension('itachip2ir',
                     ])
 
 setup(
-    name='pyitachip2ir',
-    version='0.0.6',
+    name='pyitachip2ir2',
+    version='0.0.7',
     description='A library for sending IR commands to an ITach IP2IR gateway',
     long_description=long_description,
-    url='https://bitbucket.com/pallindo/itachip2ir',
+    url='https://github.com/alanfischer/itachip2ir',
     author='Alan Fischer',
-    author_email='alan@lightningtoads.com',
+    author_email='alan@spearfischer.net',
     license='MIT',
     classifiers=[
         'Development Status :: 3 - Alpha',
@@ -42,6 +42,6 @@ setup(
         'Programming Language :: Python :: 3.5',
     ],
     keywords='itach ip2ir homeautomation',
-    py_modules = ["pyitachip2ir"],
+    py_modules = ["pyitachip2ir2"],
     ext_modules = [module]
 )
